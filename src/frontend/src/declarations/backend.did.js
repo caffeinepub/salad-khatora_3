@@ -9,11 +9,17 @@
 import { IDL } from '@icp-sdk/core/candid';
 
 export const IngredientId = IDL.Nat;
+export const IngredientUsage = IDL.Record({
+  'quantity_used' : IDL.Float64,
+  'ingredientName' : IDL.Text,
+});
+export const MenuItemId = IDL.Nat;
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
+export const SaleId = IDL.Nat;
 export const UserProfile = IDL.Record({ 'name' : IDL.Text });
 export const DashboardStats = IDL.Record({
   'recent_transactions' : IDL.Vec(
@@ -48,6 +54,16 @@ export const Ingredient = IDL.Record({
   'created_at' : IDL.Int,
   'quantity' : IDL.Float64,
 });
+export const MenuItem = IDL.Record({
+  'id' : MenuItemId,
+  'updated_at' : IDL.Int,
+  'name' : IDL.Text,
+  'selling_price' : IDL.Float64,
+  'description' : IDL.Text,
+  'created_at' : IDL.Int,
+  'ingredientUsage' : IDL.Vec(IngredientUsage),
+  'cost_per_bowl' : IDL.Float64,
+});
 export const NotificationId = IDL.Nat;
 export const Notification = IDL.Record({
   'id' : NotificationId,
@@ -55,6 +71,39 @@ export const Notification = IDL.Record({
   'type' : IDL.Text,
   'created_at' : IDL.Int,
   'message' : IDL.Text,
+});
+export const ReportStats = IDL.Record({
+  'total_units' : IDL.Nat,
+  'total_orders' : IDL.Nat,
+  'total_revenue' : IDL.Float64,
+  'top_sellers' : IDL.Vec(
+    IDL.Record({
+      'revenue' : IDL.Float64,
+      'name' : IDL.Text,
+      'units_sold' : IDL.Nat,
+    })
+  ),
+  'avg_order_value' : IDL.Float64,
+  'daily_breakdown' : IDL.Vec(
+    IDL.Record({
+      'revenue' : IDL.Float64,
+      'orders' : IDL.Nat,
+      'profit' : IDL.Float64,
+      'date_label' : IDL.Text,
+    })
+  ),
+  'total_profit' : IDL.Float64,
+});
+export const SaleRecord = IDL.Record({
+  'id' : SaleId,
+  'total_amount' : IDL.Float64,
+  'cost_amount' : IDL.Float64,
+  'menu_item_name' : IDL.Text,
+  'created_at' : IDL.Int,
+  'unit_price' : IDL.Float64,
+  'quantity' : IDL.Nat,
+  'profit' : IDL.Float64,
+  'menu_item_id' : MenuItemId,
 });
 
 export const idlService = IDL.Service({
@@ -64,15 +113,32 @@ export const idlService = IDL.Service({
       [IngredientId],
       [],
     ),
+  'addMenuItem' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Float64, IDL.Float64, IDL.Vec(IngredientUsage)],
+      [MenuItemId],
+      [],
+    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteIngredient' : IDL.Func([IngredientId], [], []),
+  'deleteMenuItem' : IDL.Func([MenuItemId], [], []),
+  'deleteSale' : IDL.Func([SaleId], [], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
   'getIngredient' : IDL.Func([IngredientId], [Ingredient], ['query']),
   'getIngredients' : IDL.Func([], [IDL.Vec(Ingredient)], ['query']),
   'getLowStockIngredients' : IDL.Func([], [IDL.Vec(Ingredient)], ['query']),
+  'getMenuItem' : IDL.Func([MenuItemId], [MenuItem], ['query']),
+  'getMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
   'getNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
+  'getReportStats' : IDL.Func([IDL.Int, IDL.Int], [ReportStats], ['query']),
+  'getSaleById' : IDL.Func([SaleId], [SaleRecord], ['query']),
+  'getSales' : IDL.Func([], [IDL.Vec(SaleRecord)], ['query']),
+  'getSalesByDateRange' : IDL.Func(
+      [IDL.Int, IDL.Int],
+      [IDL.Vec(SaleRecord)],
+      ['query'],
+    ),
   'getTotalInventoryValue' : IDL.Func([], [IDL.Float64], ['query']),
   'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
@@ -83,8 +149,10 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'markAllNotificationsRead' : IDL.Func([], [], []),
   'markNotificationRead' : IDL.Func([NotificationId], [], []),
+  'recordSale' : IDL.Func([MenuItemId, IDL.Nat], [SaleId], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'seedIngredients' : IDL.Func([], [], []),
+  'seedMenuItems' : IDL.Func([], [], []),
   'updateIngredient' : IDL.Func(
       [
         IngredientId,
@@ -98,17 +166,35 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateMenuItem' : IDL.Func(
+      [
+        MenuItemId,
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Vec(IngredientUsage),
+      ],
+      [],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
   const IngredientId = IDL.Nat;
+  const IngredientUsage = IDL.Record({
+    'quantity_used' : IDL.Float64,
+    'ingredientName' : IDL.Text,
+  });
+  const MenuItemId = IDL.Nat;
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
+  const SaleId = IDL.Nat;
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const DashboardStats = IDL.Record({
     'recent_transactions' : IDL.Vec(
@@ -143,6 +229,16 @@ export const idlFactory = ({ IDL }) => {
     'created_at' : IDL.Int,
     'quantity' : IDL.Float64,
   });
+  const MenuItem = IDL.Record({
+    'id' : MenuItemId,
+    'updated_at' : IDL.Int,
+    'name' : IDL.Text,
+    'selling_price' : IDL.Float64,
+    'description' : IDL.Text,
+    'created_at' : IDL.Int,
+    'ingredientUsage' : IDL.Vec(IngredientUsage),
+    'cost_per_bowl' : IDL.Float64,
+  });
   const NotificationId = IDL.Nat;
   const Notification = IDL.Record({
     'id' : NotificationId,
@@ -150,6 +246,39 @@ export const idlFactory = ({ IDL }) => {
     'type' : IDL.Text,
     'created_at' : IDL.Int,
     'message' : IDL.Text,
+  });
+  const ReportStats = IDL.Record({
+    'total_units' : IDL.Nat,
+    'total_orders' : IDL.Nat,
+    'total_revenue' : IDL.Float64,
+    'top_sellers' : IDL.Vec(
+      IDL.Record({
+        'revenue' : IDL.Float64,
+        'name' : IDL.Text,
+        'units_sold' : IDL.Nat,
+      })
+    ),
+    'avg_order_value' : IDL.Float64,
+    'daily_breakdown' : IDL.Vec(
+      IDL.Record({
+        'revenue' : IDL.Float64,
+        'orders' : IDL.Nat,
+        'profit' : IDL.Float64,
+        'date_label' : IDL.Text,
+      })
+    ),
+    'total_profit' : IDL.Float64,
+  });
+  const SaleRecord = IDL.Record({
+    'id' : SaleId,
+    'total_amount' : IDL.Float64,
+    'cost_amount' : IDL.Float64,
+    'menu_item_name' : IDL.Text,
+    'created_at' : IDL.Int,
+    'unit_price' : IDL.Float64,
+    'quantity' : IDL.Nat,
+    'profit' : IDL.Float64,
+    'menu_item_id' : MenuItemId,
   });
   
   return IDL.Service({
@@ -159,15 +288,38 @@ export const idlFactory = ({ IDL }) => {
         [IngredientId],
         [],
       ),
+    'addMenuItem' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Vec(IngredientUsage),
+        ],
+        [MenuItemId],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteIngredient' : IDL.Func([IngredientId], [], []),
+    'deleteMenuItem' : IDL.Func([MenuItemId], [], []),
+    'deleteSale' : IDL.Func([SaleId], [], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getDashboardStats' : IDL.Func([], [DashboardStats], ['query']),
     'getIngredient' : IDL.Func([IngredientId], [Ingredient], ['query']),
     'getIngredients' : IDL.Func([], [IDL.Vec(Ingredient)], ['query']),
     'getLowStockIngredients' : IDL.Func([], [IDL.Vec(Ingredient)], ['query']),
+    'getMenuItem' : IDL.Func([MenuItemId], [MenuItem], ['query']),
+    'getMenuItems' : IDL.Func([], [IDL.Vec(MenuItem)], ['query']),
     'getNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
+    'getReportStats' : IDL.Func([IDL.Int, IDL.Int], [ReportStats], ['query']),
+    'getSaleById' : IDL.Func([SaleId], [SaleRecord], ['query']),
+    'getSales' : IDL.Func([], [IDL.Vec(SaleRecord)], ['query']),
+    'getSalesByDateRange' : IDL.Func(
+        [IDL.Int, IDL.Int],
+        [IDL.Vec(SaleRecord)],
+        ['query'],
+      ),
     'getTotalInventoryValue' : IDL.Func([], [IDL.Float64], ['query']),
     'getUnreadCount' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
@@ -178,8 +330,10 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'markAllNotificationsRead' : IDL.Func([], [], []),
     'markNotificationRead' : IDL.Func([NotificationId], [], []),
+    'recordSale' : IDL.Func([MenuItemId, IDL.Nat], [SaleId], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'seedIngredients' : IDL.Func([], [], []),
+    'seedMenuItems' : IDL.Func([], [], []),
     'updateIngredient' : IDL.Func(
         [
           IngredientId,
@@ -189,6 +343,18 @@ export const idlFactory = ({ IDL }) => {
           IDL.Float64,
           IDL.Text,
           IDL.Float64,
+        ],
+        [],
+        [],
+      ),
+    'updateMenuItem' : IDL.Func(
+        [
+          MenuItemId,
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Vec(IngredientUsage),
         ],
         [],
         [],

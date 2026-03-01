@@ -1,11 +1,14 @@
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
+  BarChart2,
   LayoutDashboard,
   Leaf,
   LogOut,
   Package,
+  Settings,
   ShoppingCart,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -18,7 +21,10 @@ interface SidebarProps {
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/inventory", icon: Package, label: "Inventory" },
+  { to: "/menu", icon: UtensilsCrossed, label: "Menu" },
   { to: "/sales", icon: ShoppingCart, label: "Sales" },
+  { to: "/reports", icon: BarChart2, label: "Reports" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {

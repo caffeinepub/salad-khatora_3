@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
   BarChart3,
   Calendar,
@@ -26,128 +28,28 @@ import {
   Loader2,
   ShoppingCart,
   TrendingUp,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useIngredients, useUpdateIngredient } from "../hooks/useQueries";
+import type { SaleRecord } from "../backend.d";
+import {
+  useIngredients,
+  useMenuItems,
+  useRecordSale,
+  useSales,
+  useUpdateIngredient,
+} from "../hooks/useQueries";
 import { formatCurrency } from "../utils/format";
 
-// ─── Menu Items ───────────────────────────────────────────────────────────────
+// ─── Date helpers (bigint nanoseconds) ───────────────────────────────────────
 
-interface IngredientUsage {
-  name: string;
-  quantity_used: number;
+function nsToMs(ns: bigint): number {
+  return Number(ns / 1_000_000n);
 }
 
-interface MenuItem {
-  id: number;
-  name: string;
-  description: string;
-  selling_price: number;
-  ingredientUsage: IngredientUsage[];
-  cost_per_bowl: number;
-}
-
-const MENU_ITEMS: MenuItem[] = [
-  {
-    id: 1,
-    name: "Greek Salad",
-    description: "Classic Greek salad with fresh vegetables",
-    selling_price: 15.0,
-    ingredientUsage: [
-      { name: "Lettuce", quantity_used: 80 },
-      { name: "Tomatoes", quantity_used: 60 },
-      { name: "Cucumbers", quantity_used: 50 },
-      { name: "Red Onion", quantity_used: 20 },
-    ],
-    cost_per_bowl: 12.5,
-  },
-  {
-    id: 2,
-    name: "Caesar Bowl",
-    description: "Romaine lettuce with Caesar dressing and croutons",
-    selling_price: 15.0,
-    ingredientUsage: [
-      { name: "Lettuce", quantity_used: 100 },
-      { name: "Croutons", quantity_used: 30 },
-      { name: "Caesar Dressing", quantity_used: 40 },
-    ],
-    cost_per_bowl: 11.0,
-  },
-  {
-    id: 3,
-    name: "Quinoa Power",
-    description: "Protein-packed bowl with roasted vegetables",
-    selling_price: 15.0,
-    ingredientUsage: [
-      { name: "Carrots", quantity_used: 50 },
-      { name: "Bell Peppers", quantity_used: 40 },
-      { name: "Cheese", quantity_used: 30 },
-    ],
-    cost_per_bowl: 10.5,
-  },
-  {
-    id: 4,
-    name: "Super Greens",
-    description: "Vibrant greens bowl with olive oil dressing",
-    selling_price: 15.0,
-    ingredientUsage: [
-      { name: "Lettuce", quantity_used: 90 },
-      { name: "Cucumbers", quantity_used: 40 },
-      { name: "Bell Peppers", quantity_used: 30 },
-    ],
-    cost_per_bowl: 9.5,
-  },
-  {
-    id: 5,
-    name: "Fruit Mix",
-    description: "Colorful mixed fruit and vegetable bowl",
-    selling_price: 15.0,
-    ingredientUsage: [
-      { name: "Tomatoes", quantity_used: 50 },
-      { name: "Carrots", quantity_used: 40 },
-      { name: "Bell Peppers", quantity_used: 30 },
-    ],
-    cost_per_bowl: 8.5,
-  },
-];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface SaleRecord {
-  id: string;
-  menu_item_id: number;
-  menu_item_name: string;
-  quantity: number;
-  unit_price: number;
-  total_amount: number;
-  cost_amount: number;
-  profit: number;
-  created_at: string; // ISO date string
-}
-
-const STORAGE_KEY = "sk_sales";
-
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-
-function loadSales(): SaleRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as SaleRecord[];
-  } catch {
-    return [];
-  }
-}
-
-function saveSales(sales: SaleRecord[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sales));
-}
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
-
-function isToday(isoDate: string): boolean {
-  const d = new Date(isoDate);
+function isToday(ns: bigint): boolean {
+  const d = new Date(nsToMs(ns));
   const now = new Date();
   return (
     d.getFullYear() === now.getFullYear() &&
@@ -156,15 +58,14 @@ function isToday(isoDate: string): boolean {
   );
 }
 
-function isWithinDays(isoDate: string, days: number): boolean {
-  const d = new Date(isoDate).getTime();
+function isWithinDays(ns: bigint, days: number): boolean {
+  const ms = nsToMs(ns);
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return d >= cutoff;
+  return ms >= cutoff;
 }
 
-function formatDisplayDate(isoDate: string): string {
-  const d = new Date(isoDate);
-  return d.toLocaleString("en-IN", {
+function formatDisplayDate(ns: bigint): string {
+  return new Date(nsToMs(ns)).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -188,7 +89,7 @@ function exportSalesToCSV(sales: SaleRecord[]): void {
   const rows = sales.map((s) => [
     formatDisplayDate(s.created_at),
     s.menu_item_name,
-    s.quantity,
+    Number(s.quantity),
     s.unit_price.toFixed(2),
     s.total_amount.toFixed(2),
     s.cost_amount.toFixed(2),
@@ -217,13 +118,13 @@ function SummaryCard({
   value,
   icon: Icon,
   color,
-  prefix,
+  isLoading,
 }: {
   title: string;
   value: number;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   color: string;
-  prefix?: string;
+  isLoading?: boolean;
 }) {
   return (
     <Card className="bg-card border-border shadow-card">
@@ -233,10 +134,13 @@ function SummaryCard({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
               {title}
             </p>
-            <p className="text-2xl font-bold text-foreground font-display">
-              {prefix}
-              {formatCurrency(value)}
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-28" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground font-display">
+                {formatCurrency(value)}
+              </p>
+            )}
           </div>
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ml-3 ${color}`}
@@ -251,7 +155,13 @@ function SummaryCard({
 
 // ─── Top Sellers ──────────────────────────────────────────────────────────────
 
-function TopSellers({ sales }: { sales: SaleRecord[] }) {
+function TopSellers({
+  sales,
+  isLoading,
+}: {
+  sales: SaleRecord[];
+  isLoading?: boolean;
+}) {
   const topItems = useMemo(() => {
     const map: Record<
       string,
@@ -265,7 +175,7 @@ function TopSellers({ sales }: { sales: SaleRecord[] }) {
           revenue: 0,
         };
       }
-      map[s.menu_item_name].units += s.quantity;
+      map[s.menu_item_name].units += Number(s.quantity);
       map[s.menu_item_name].revenue += s.total_amount;
     }
     return Object.values(map)
@@ -284,7 +194,19 @@ function TopSellers({ sales }: { sales: SaleRecord[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        {topItems.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {["ts1", "ts2", "ts3"].map((k) => (
+              <div key={k} className="space-y-1">
+                <div className="flex items-center justify-between gap-3">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : topItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <BarChart3
               size={28}
@@ -347,21 +269,19 @@ function TopSellers({ sales }: { sales: SaleRecord[] }) {
 
 // ─── Record Sale ──────────────────────────────────────────────────────────────
 
-interface RecordSaleProps {
-  onSaleRecorded: () => void;
-}
-
-function RecordSale({ onSaleRecorded }: RecordSaleProps) {
+function RecordSale() {
   const { data: ingredients } = useIngredients();
+  const { data: menuItems, isLoading: menuLoading } = useMenuItems();
   const updateIngredient = useUpdateIngredient();
+  const recordSaleMutation = useRecordSale();
   const queryClient = useQueryClient();
 
   const [selectedItemId, setSelectedItemId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const selectedMenuItem = MENU_ITEMS.find(
-    (m) => m.id === Number(selectedItemId),
+  const selectedMenuItem = menuItems?.find(
+    (m) => String(m.id) === selectedItemId,
   );
 
   const qty = Math.max(1, Number.parseInt(quantity, 10) || 1);
@@ -393,7 +313,7 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
             const ingredient = ingredients.find(
               (ing) =>
                 ing.name.toLowerCase().trim() ===
-                usage.name.toLowerCase().trim(),
+                usage.ingredientName.toLowerCase().trim(),
             );
             if (!ingredient) return null;
             const newQty = Math.max(
@@ -422,29 +342,21 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
         );
       }
 
-      // Save sale to localStorage
-      const newSale: SaleRecord = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      // Record sale in the backend
+      await recordSaleMutation.mutateAsync({
         menu_item_id: selectedMenuItem.id,
-        menu_item_name: selectedMenuItem.name,
-        quantity: qty,
-        unit_price: selectedMenuItem.selling_price,
-        total_amount: totalAmount,
-        cost_amount: estimatedCost,
-        profit: estimatedProfit,
-        created_at: new Date().toISOString(),
-      };
-
-      const existing = loadSales();
-      saveSales([newSale, ...existing]);
+        quantity: BigInt(qty),
+      });
 
       // Invalidate all relevant caches
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["sales"] }),
         queryClient.invalidateQueries({ queryKey: ["ingredients"] }),
         queryClient.invalidateQueries({ queryKey: ["low-stock"] }),
         queryClient.invalidateQueries({ queryKey: ["total-inventory-value"] }),
         queryClient.invalidateQueries({ queryKey: ["notifications"] }),
         queryClient.invalidateQueries({ queryKey: ["unread-count"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
       ]);
 
       toast.success(
@@ -454,7 +366,6 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
       // Reset form
       setSelectedItemId("");
       setQuantity("1");
-      onSaleRecorded();
     } catch (err) {
       console.error(err);
       toast.error("Failed to record sale. Please try again.");
@@ -466,12 +377,68 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
     qty,
     ingredients,
     updateIngredient,
+    recordSaleMutation,
     queryClient,
     totalAmount,
-    estimatedCost,
-    estimatedProfit,
-    onSaleRecorded,
   ]);
+
+  // Loading state
+  if (menuLoading) {
+    return (
+      <Card className="bg-card border-border shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-base flex items-center gap-2">
+            <ShoppingCart size={16} className="text-primary" />
+            Record New Sale
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton className="h-9 lg:col-span-2" />
+            <Skeleton className="h-9" />
+            <Skeleton className="h-9" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No menu items state
+  if (!menuItems || menuItems.length === 0) {
+    return (
+      <Card className="bg-card border-border shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-base flex items-center gap-2">
+            <ShoppingCart size={16} className="text-primary" />
+            Record New Sale
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-col items-center justify-center py-8 text-center gap-3">
+            <UtensilsCrossed
+              size={28}
+              className="text-muted-foreground opacity-40"
+            />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                No menu items available
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Add bowls from the{" "}
+                <Link
+                  to="/menu"
+                  className="text-primary hover:underline font-medium"
+                >
+                  Menu Management
+                </Link>{" "}
+                page before recording sales.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-card border-border shadow-card">
@@ -497,8 +464,8 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
                 <SelectValue placeholder="Select a salad bowl..." />
               </SelectTrigger>
               <SelectContent>
-                {MENU_ITEMS.map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
+                {menuItems.map((item) => (
+                  <SelectItem key={String(item.id)} value={String(item.id)}>
                     <span className="font-medium">{item.name}</span>
                     <span className="text-muted-foreground ml-2">
                       — {formatCurrency(item.selling_price)}
@@ -591,11 +558,11 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
           <div className="mt-3 flex flex-wrap gap-1.5">
             {selectedMenuItem.ingredientUsage.map((usage) => (
               <Badge
-                key={usage.name}
+                key={usage.ingredientName}
                 variant="outline"
                 className="text-[11px] bg-accent/50 border-border text-muted-foreground"
               >
-                {usage.name}: −{usage.quantity_used * qty}g
+                {usage.ingredientName}: −{usage.quantity_used * qty}g
               </Badge>
             ))}
           </div>
@@ -607,9 +574,15 @@ function RecordSale({ onSaleRecorded }: RecordSaleProps) {
 
 // ─── Sales History Table ──────────────────────────────────────────────────────
 
-function SalesHistoryTable({ sales }: { sales: SaleRecord[] }) {
+function SalesHistoryTable({
+  sales,
+  isLoading,
+}: {
+  sales: SaleRecord[];
+  isLoading?: boolean;
+}) {
   const sorted = useMemo(
-    () => [...sales].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    () => [...sales].sort((a, b) => Number(b.created_at - a.created_at)),
     [sales],
   );
 
@@ -643,7 +616,19 @@ function SalesHistoryTable({ sales }: { sales: SaleRecord[] }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {sorted.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {["sh1", "sh2", "sh3", "sh4", "sh5"].map((k) => (
+              <div key={k} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-28 flex-1" />
+                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        ) : sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <ShoppingCart
               size={32}
@@ -687,7 +672,7 @@ function SalesHistoryTable({ sales }: { sales: SaleRecord[] }) {
               <TableBody>
                 {sorted.map((sale) => (
                   <TableRow
-                    key={sale.id}
+                    key={String(sale.id)}
                     className="hover:bg-accent/30 transition-colors"
                   >
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -697,7 +682,7 @@ function SalesHistoryTable({ sales }: { sales: SaleRecord[] }) {
                       {sale.menu_item_name}
                     </TableCell>
                     <TableCell className="text-sm tabular-nums text-right">
-                      {sale.quantity}
+                      {Number(sale.quantity)}
                     </TableCell>
                     <TableCell className="text-sm tabular-nums text-right text-muted-foreground">
                       {formatCurrency(sale.unit_price)}
@@ -733,11 +718,7 @@ function SalesHistoryTable({ sales }: { sales: SaleRecord[] }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function SalesPage() {
-  const [sales, setSales] = useState<SaleRecord[]>(() => loadSales());
-
-  const refreshSales = useCallback(() => {
-    setSales(loadSales());
-  }, []);
+  const { data: sales = [], isLoading: salesLoading } = useSales();
 
   const todayRevenue = useMemo(
     () =>
@@ -800,18 +781,18 @@ export function SalesPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((card) => (
-          <SummaryCard key={card.title} {...card} />
+          <SummaryCard key={card.title} {...card} isLoading={salesLoading} />
         ))}
       </div>
 
       {/* Top Sellers */}
-      <TopSellers sales={sales} />
+      <TopSellers sales={sales} isLoading={salesLoading} />
 
       {/* Record New Sale */}
-      <RecordSale onSaleRecorded={refreshSales} />
+      <RecordSale />
 
       {/* Sales History */}
-      <SalesHistoryTable sales={sales} />
+      <SalesHistoryTable sales={sales} isLoading={salesLoading} />
 
       {/* Footer */}
       <footer className="text-center py-4 border-t border-border mt-8">

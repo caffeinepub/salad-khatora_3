@@ -35,6 +35,21 @@ export interface Ingredient {
   'quantity' : number,
 }
 export type IngredientId = bigint;
+export interface IngredientUsage {
+  'quantity_used' : number,
+  'ingredientName' : string,
+}
+export interface MenuItem {
+  'id' : MenuItemId,
+  'updated_at' : bigint,
+  'name' : string,
+  'selling_price' : number,
+  'description' : string,
+  'created_at' : bigint,
+  'ingredientUsage' : Array<IngredientUsage>,
+  'cost_per_bowl' : number,
+}
+export type MenuItemId = bigint;
 export interface Notification {
   'id' : NotificationId,
   'is_read' : boolean,
@@ -43,6 +58,36 @@ export interface Notification {
   'message' : string,
 }
 export type NotificationId = bigint;
+export interface ReportStats {
+  'total_units' : bigint,
+  'total_orders' : bigint,
+  'total_revenue' : number,
+  'top_sellers' : Array<
+    { 'revenue' : number, 'name' : string, 'units_sold' : bigint }
+  >,
+  'avg_order_value' : number,
+  'daily_breakdown' : Array<
+    {
+      'revenue' : number,
+      'orders' : bigint,
+      'profit' : number,
+      'date_label' : string,
+    }
+  >,
+  'total_profit' : number,
+}
+export type SaleId = bigint;
+export interface SaleRecord {
+  'id' : SaleId,
+  'total_amount' : number,
+  'cost_amount' : number,
+  'menu_item_name' : string,
+  'created_at' : bigint,
+  'unit_price' : number,
+  'quantity' : bigint,
+  'profit' : number,
+  'menu_item_id' : MenuItemId,
+}
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -53,25 +98,43 @@ export interface _SERVICE {
     [string, number, string, number, string, number],
     IngredientId
   >,
+  'addMenuItem' : ActorMethod<
+    [string, string, number, number, Array<IngredientUsage>],
+    MenuItemId
+  >,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteIngredient' : ActorMethod<[IngredientId], undefined>,
+  'deleteMenuItem' : ActorMethod<[MenuItemId], undefined>,
+  'deleteSale' : ActorMethod<[SaleId], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getDashboardStats' : ActorMethod<[], DashboardStats>,
   'getIngredient' : ActorMethod<[IngredientId], Ingredient>,
   'getIngredients' : ActorMethod<[], Array<Ingredient>>,
   'getLowStockIngredients' : ActorMethod<[], Array<Ingredient>>,
+  'getMenuItem' : ActorMethod<[MenuItemId], MenuItem>,
+  'getMenuItems' : ActorMethod<[], Array<MenuItem>>,
   'getNotifications' : ActorMethod<[], Array<Notification>>,
+  'getReportStats' : ActorMethod<[bigint, bigint], ReportStats>,
+  'getSaleById' : ActorMethod<[SaleId], SaleRecord>,
+  'getSales' : ActorMethod<[], Array<SaleRecord>>,
+  'getSalesByDateRange' : ActorMethod<[bigint, bigint], Array<SaleRecord>>,
   'getTotalInventoryValue' : ActorMethod<[], number>,
   'getUnreadCount' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'markAllNotificationsRead' : ActorMethod<[], undefined>,
   'markNotificationRead' : ActorMethod<[NotificationId], undefined>,
+  'recordSale' : ActorMethod<[MenuItemId, bigint], SaleId>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'seedIngredients' : ActorMethod<[], undefined>,
+  'seedMenuItems' : ActorMethod<[], undefined>,
   'updateIngredient' : ActorMethod<
     [IngredientId, string, number, string, number, string, number],
+    undefined
+  >,
+  'updateMenuItem' : ActorMethod<
+    [MenuItemId, string, string, number, number, Array<IngredientUsage>],
     undefined
   >,
 }

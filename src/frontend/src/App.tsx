@@ -13,7 +13,10 @@ import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { DashboardPage } from "./pages/DashboardPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MenuPage } from "./pages/MenuPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { SalesPage } from "./pages/SalesPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 // Root route
 const rootRoute = createRootRoute({
@@ -87,13 +90,37 @@ const salesRoute = createRoute({
   component: SalesPage,
 });
 
+// Menu
+const menuRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/menu",
+  component: MenuPage,
+});
+
+// Reports
+const reportsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/reports",
+  component: ReportsPage,
+});
+
+// Settings
+const settingsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: "/settings",
+  component: SettingsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   protectedRoute.addChildren([
     indexRoute,
     dashboardRoute,
     inventoryRoute,
+    menuRoute,
     salesRoute,
+    reportsRoute,
+    settingsRoute,
   ]),
 ]);
 

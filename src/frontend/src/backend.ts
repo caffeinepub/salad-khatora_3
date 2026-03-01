@@ -89,6 +89,36 @@ export class ExternalBlob {
         return this;
     }
 }
+export type IngredientId = bigint;
+export interface MenuItem {
+    id: MenuItemId;
+    updated_at: bigint;
+    name: string;
+    selling_price: number;
+    description: string;
+    created_at: bigint;
+    ingredientUsage: Array<IngredientUsage>;
+    cost_per_bowl: number;
+}
+export type MenuItemId = bigint;
+export interface ReportStats {
+    total_units: bigint;
+    total_orders: bigint;
+    total_revenue: number;
+    top_sellers: Array<{
+        revenue: number;
+        name: string;
+        units_sold: bigint;
+    }>;
+    avg_order_value: number;
+    daily_breakdown: Array<{
+        revenue: number;
+        orders: bigint;
+        profit: number;
+        date_label: string;
+    }>;
+    total_profit: number;
+}
 export interface Ingredient {
     id: IngredientId;
     updated_at: bigint;
@@ -100,6 +130,7 @@ export interface Ingredient {
     created_at: bigint;
     quantity: number;
 }
+export type NotificationId = bigint;
 export interface Notification {
     id: NotificationId;
     is_read: boolean;
@@ -107,7 +138,18 @@ export interface Notification {
     created_at: bigint;
     message: string;
 }
-export type NotificationId = bigint;
+export type SaleId = bigint;
+export interface SaleRecord {
+    id: SaleId;
+    total_amount: number;
+    cost_amount: number;
+    menu_item_name: string;
+    created_at: bigint;
+    unit_price: number;
+    quantity: bigint;
+    profit: number;
+    menu_item_id: MenuItemId;
+}
 export interface DashboardStats {
     recent_transactions: Array<{
         id: bigint;
@@ -129,7 +171,10 @@ export interface DashboardStats {
 export interface UserProfile {
     name: string;
 }
-export type IngredientId = bigint;
+export interface IngredientUsage {
+    quantity_used: number;
+    ingredientName: string;
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -138,24 +183,36 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addIngredient(name: string, quantity: number, unit: string, cost_price: number, supplier: string, threshold: number): Promise<IngredientId>;
+    addMenuItem(name: string, description: string, selling_price: number, cost_per_bowl: number, ingredientUsage: Array<IngredientUsage>): Promise<MenuItemId>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteIngredient(id: IngredientId): Promise<void>;
+    deleteMenuItem(id: MenuItemId): Promise<void>;
+    deleteSale(id: SaleId): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getDashboardStats(): Promise<DashboardStats>;
     getIngredient(id: IngredientId): Promise<Ingredient>;
     getIngredients(): Promise<Array<Ingredient>>;
     getLowStockIngredients(): Promise<Array<Ingredient>>;
+    getMenuItem(id: MenuItemId): Promise<MenuItem>;
+    getMenuItems(): Promise<Array<MenuItem>>;
     getNotifications(): Promise<Array<Notification>>;
+    getReportStats(from: bigint, to: bigint): Promise<ReportStats>;
+    getSaleById(id: SaleId): Promise<SaleRecord>;
+    getSales(): Promise<Array<SaleRecord>>;
+    getSalesByDateRange(from: bigint, to: bigint): Promise<Array<SaleRecord>>;
     getTotalInventoryValue(): Promise<number>;
     getUnreadCount(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     markAllNotificationsRead(): Promise<void>;
     markNotificationRead(id: NotificationId): Promise<void>;
+    recordSale(menu_item_id: MenuItemId, quantity: bigint): Promise<SaleId>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     seedIngredients(): Promise<void>;
+    seedMenuItems(): Promise<void>;
     updateIngredient(id: IngredientId, name: string, quantity: number, unit: string, cost_price: number, supplier: string, threshold: number): Promise<void>;
+    updateMenuItem(id: MenuItemId, name: string, description: string, selling_price: number, cost_per_bowl: number, ingredientUsage: Array<IngredientUsage>): Promise<void>;
 }
 import type { UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -188,6 +245,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addMenuItem(arg0: string, arg1: string, arg2: number, arg3: number, arg4: Array<IngredientUsage>): Promise<MenuItemId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addMenuItem(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addMenuItem(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -213,6 +284,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteIngredient(arg0);
+            return result;
+        }
+    }
+    async deleteMenuItem(arg0: MenuItemId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteMenuItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteMenuItem(arg0);
+            return result;
+        }
+    }
+    async deleteSale(arg0: SaleId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteSale(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteSale(arg0);
             return result;
         }
     }
@@ -300,6 +399,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getMenuItem(arg0: MenuItemId): Promise<MenuItem> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getMenuItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getMenuItem(arg0);
+            return result;
+        }
+    }
+    async getMenuItems(): Promise<Array<MenuItem>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getMenuItems();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getMenuItems();
+            return result;
+        }
+    }
     async getNotifications(): Promise<Array<Notification>> {
         if (this.processError) {
             try {
@@ -311,6 +438,62 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getNotifications();
+            return result;
+        }
+    }
+    async getReportStats(arg0: bigint, arg1: bigint): Promise<ReportStats> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getReportStats(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getReportStats(arg0, arg1);
+            return result;
+        }
+    }
+    async getSaleById(arg0: SaleId): Promise<SaleRecord> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSaleById(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSaleById(arg0);
+            return result;
+        }
+    }
+    async getSales(): Promise<Array<SaleRecord>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSales();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSales();
+            return result;
+        }
+    }
+    async getSalesByDateRange(arg0: bigint, arg1: bigint): Promise<Array<SaleRecord>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSalesByDateRange(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSalesByDateRange(arg0, arg1);
             return result;
         }
     }
@@ -398,6 +581,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async recordSale(arg0: MenuItemId, arg1: bigint): Promise<SaleId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.recordSale(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.recordSale(arg0, arg1);
+            return result;
+        }
+    }
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
         if (this.processError) {
             try {
@@ -426,6 +623,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async seedMenuItems(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.seedMenuItems();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.seedMenuItems();
+            return result;
+        }
+    }
     async updateIngredient(arg0: IngredientId, arg1: string, arg2: number, arg3: string, arg4: number, arg5: string, arg6: number): Promise<void> {
         if (this.processError) {
             try {
@@ -437,6 +648,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateIngredient(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return result;
+        }
+    }
+    async updateMenuItem(arg0: MenuItemId, arg1: string, arg2: string, arg3: number, arg4: number, arg5: Array<IngredientUsage>): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateMenuItem(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateMenuItem(arg0, arg1, arg2, arg3, arg4, arg5);
             return result;
         }
     }
