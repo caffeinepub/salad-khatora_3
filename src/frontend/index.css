@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Salad Khatora Design Tokens === */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans-VariableFont_wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fonts/Fraunces-Italic-VariableFont_SOFT,WONK,opsz,wght.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("/assets/fonts/Fraunces-VariableFont_SOFT,WONK,opsz,wght.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Core palette — green-600 (#16a34a) in OKLCH: L=0.627 C=0.194 H=149 */
+    --background: 0.99 0.004 140;
+    --foreground: 0.15 0.015 150;
+
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.015 150;
+
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.015 150;
+
+    /* Primary = green-600 */
+    --primary: 0.627 0.194 149;
+    --primary-foreground: 1 0 0;
+
+    /* Secondary = light green tint */
+    --secondary: 0.95 0.03 149;
+    --secondary-foreground: 0.627 0.194 149;
+
+    --muted: 0.97 0.01 140;
+    --muted-foreground: 0.5 0.02 150;
+
+    /* Accent = slightly deeper green tint for hover */
+    --accent: 0.93 0.05 149;
+    --accent-foreground: 0.45 0.14 149;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 1 0 0;
+
+    --border: 0.9 0.02 149;
+    --input: 0.92 0.015 149;
+    --ring: 0.627 0.194 149;
+
+    /* Charts */
+    --chart-1: 0.627 0.194 149;
+    --chart-2: 0.55 0.15 152;
+    --chart-3: 0.7 0.16 145;
+    --chart-4: 0.85 0.1 150;
+    --chart-5: 0.45 0.18 148;
+
+    /* Sidebar — green-600 background */
+    --sidebar: 0.627 0.194 149;
+    --sidebar-foreground: 0.98 0.005 140;
+    --sidebar-primary: 1 0 0;
+    --sidebar-primary-foreground: 0.627 0.194 149;
+    --sidebar-accent: 0.55 0.17 149;
+    --sidebar-accent-foreground: 1 0 0;
+    --sidebar-border: 0.55 0.17 149;
+    --sidebar-ring: 1 0 0;
+
+    /* Status colors */
+    --warning: 0.769 0.188 70.08;
+    --warning-foreground: 0.3 0.05 70;
+    --success: 0.627 0.194 149;
+    --success-foreground: 1 0 0;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .sk-gradient {
+    background: linear-gradient(135deg, oklch(0.627 0.194 149), oklch(0.55 0.17 149));
+  }
+
+  .sk-card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+  }
+
+  .text-warning {
+    color: oklch(var(--warning));
+  }
+  .bg-warning {
+    background-color: oklch(var(--warning));
+  }
+  .bg-warning\/10 {
+    background-color: oklch(var(--warning) / 0.1);
+  }
+  .text-warning-foreground {
+    color: oklch(var(--warning-foreground));
+  }
+}
