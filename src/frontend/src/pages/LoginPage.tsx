@@ -73,7 +73,7 @@ export function LoginPage() {
             <div className="flex flex-col items-center mb-8">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 overflow-hidden">
                 <img
-                  src="/assets/uploads/Salad-Khatora-1.jpeg"
+                  src="/assets/generated/Salad-Khatora-1.jpeg"
                   alt="Salad Khatora"
                   className="w-16 h-16 object-contain rounded-xl"
                 />

@@ -44,7 +44,7 @@ interface Preferences {
 }
 
 const DEFAULT_PREFS: Preferences = {
-  currency: "PKR",
+  currency: "INR",
   lowStockAlerts: true,
 };
 
@@ -423,12 +423,12 @@ function PreferencesTab() {
                 <SelectValue placeholder="Select currency" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="PKR">
+                <SelectItem value="INR">
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                      ₨
+                      ₹
                     </span>
-                    PKR — Pakistani Rupee
+                    INR — Indian Rupee
                   </span>
                 </SelectItem>
                 <SelectItem value="USD">
@@ -439,12 +439,12 @@ function PreferencesTab() {
                     USD — US Dollar
                   </span>
                 </SelectItem>
-                <SelectItem value="SAR">
+                <SelectItem value="AED">
                   <span className="flex items-center gap-2">
                     <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                      ﷼
+                      د.إ
                     </span>
-                    SAR — Saudi Riyal
+                    AED — UAE Dirham
                   </span>
                 </SelectItem>
               </SelectContent>

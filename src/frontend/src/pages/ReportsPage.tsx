@@ -79,7 +79,7 @@ function nsToDisplayDate(labelStr: string): string {
   try {
     const ns = BigInt(labelStr);
     const ms = Number(ns / 1_000_000n);
-    return new Date(ms).toLocaleDateString("en-PK", {
+    return new Date(ms).toLocaleDateString("en-IN", {
       month: "short",
       day: "numeric",
     });
@@ -95,10 +95,10 @@ function exportToCSV(sales: SaleRecord[], label: string): void {
     "Date",
     "Item",
     "Qty",
-    "Unit Price (PKR)",
-    "Revenue (PKR)",
-    "Cost (PKR)",
-    "Profit (PKR)",
+    "Unit Price (₹)",
+    "Revenue (₹)",
+    "Cost (₹)",
+    "Profit (₹)",
   ];
   const rows = sales.map((s) => [
     formatDate(s.created_at),
@@ -144,7 +144,7 @@ function StatCard({
     if (value === undefined) return "—";
     const num = typeof value === "bigint" ? Number(value) : value;
     if (isCurrency) return formatCurrency(num);
-    return num.toLocaleString("en-PK");
+    return num.toLocaleString("en-IN");
   }, [value, isCurrency]);
 
   return (
@@ -291,7 +291,7 @@ function TrendChart({
                   boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 }}
                 formatter={(value: number, name: string) => [
-                  `PKR ${value.toLocaleString("en-PK")}`,
+                  `₹${value.toLocaleString("en-IN")}`,
                   name,
                 ]}
               />
@@ -750,13 +750,13 @@ export function ReportsPage() {
               <span>
                 Custom range:{" "}
                 <span className="font-medium text-foreground">
-                  {new Date(customFrom).toLocaleDateString("en-PK", {
+                  {new Date(customFrom).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   })}
                   {" – "}
-                  {new Date(customTo).toLocaleDateString("en-PK", {
+                  {new Date(customTo).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",

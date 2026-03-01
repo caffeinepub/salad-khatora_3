@@ -44,7 +44,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0">
             <img
-              src="/assets/uploads/Salad-Khatora-1.jpeg"
+              src="/assets/generated/Salad-Khatora-1.jpeg"
               alt="Salad Khatora"
               className="w-9 h-9 object-contain rounded-lg"
             />
