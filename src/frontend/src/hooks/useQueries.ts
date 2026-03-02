@@ -11,7 +11,7 @@ import type {
   SaleRecord,
   UserProfile,
 } from "../backend.d";
-import { useActor } from "./useActor";
+import { useAppActor as useActor } from "./useAppActor";
 
 // ─── Ingredients ────────────────────────────────────────────────────────────
 

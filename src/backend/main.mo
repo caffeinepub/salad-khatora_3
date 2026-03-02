@@ -5,17 +5,18 @@ import Float "mo:core/Float";
 import Array "mo:core/Array";
 import Text "mo:core/Text";
 import Runtime "mo:core/Runtime";
-import MixinAuthorization "authorization/MixinAuthorization";
-import AccessControl "authorization/access-control";
 import Iter "mo:core/Iter";
 import Principal "mo:core/Principal";
 import Nat "mo:core/Nat";
 import Int "mo:core/Int";
 import Order "mo:core/Order";
-import Debug "mo:core/Debug";
+import Migration "migration";
+import AccessControl "authorization/access-control";
+import MixinAuthorization "authorization/MixinAuthorization";
 
+(with migration = Migration.run)
 actor {
-  // State Initialization
+  // Initialize access control
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
@@ -45,6 +46,34 @@ actor {
     created_at : Int;
   };
 
+  type MenuItem = {
+    id : MenuItemId;
+    name : Text;
+    description : Text;
+    selling_price : Float;
+    cost_per_bowl : Float;
+    ingredientUsage : [IngredientUsage];
+    created_at : Int;
+    updated_at : Int;
+  };
+
+  type SaleRecord = {
+    id : SaleId;
+    menu_item_id : MenuItemId;
+    menu_item_name : Text;
+    quantity : Nat;
+    unit_price : Float;
+    total_amount : Float;
+    cost_amount : Float;
+    profit : Float;
+    created_at : Int;
+  };
+
+  type IngredientUsage = {
+    ingredientName : Text;
+    quantity_used : Float;
+  };
+
   type DashboardStats = {
     daily_sales : Float;
     weekly_sales : Float;
@@ -64,7 +93,7 @@ actor {
     }];
   };
 
-  public type ReportStats = {
+  type ReportStats = {
     total_revenue : Float;
     total_profit : Float;
     total_orders : Nat;
@@ -85,34 +114,6 @@ actor {
 
   public type UserProfile = {
     name : Text;
-  };
-
-  public type IngredientUsage = {
-    ingredientName : Text;
-    quantity_used : Float;
-  };
-
-  public type MenuItem = {
-    id : MenuItemId;
-    name : Text;
-    description : Text;
-    selling_price : Float;
-    cost_per_bowl : Float;
-    ingredientUsage : [IngredientUsage];
-    created_at : Int;
-    updated_at : Int;
-  };
-
-  public type SaleRecord = {
-    id : SaleId;
-    menu_item_id : MenuItemId;
-    menu_item_name : Text;
-    quantity : Nat;
-    unit_price : Float;
-    total_amount : Float;
-    cost_amount : Float;
-    profit : Float;
-    created_at : Int;
   };
 
   // Storage
@@ -150,15 +151,14 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Seed Ingredients
+  // Seed Ingredients (Admin only)
   public shared ({ caller }) func seedIngredients() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can seed ingredients");
+      Runtime.trap("Unauthorized: Only admins can seed ingredients");
     };
 
     let now = Time.now();
 
-    // Ingredient ID starts at 1
     let seedData = [
       ("Lettuce", 5000.0, "grams", 0.05, "Fresh Farms", 500.0),
       ("Tomatoes", 3000.0, "grams", 0.04, "Fresh Farms", 300.0),
@@ -186,7 +186,6 @@ actor {
       };
       ingredients.add(nextIngredientId, ingredient);
 
-      // Create low stock notification if needed
       if (quantity <= threshold) {
         let notification : Notification = {
           id = nextNotificationId;
@@ -203,7 +202,7 @@ actor {
     };
   };
 
-  // Ingredient CRUD
+  // Ingredient CRUD (Admin only for modifications)
   public shared ({ caller }) func addIngredient(
     name : Text,
     quantity : Float,
@@ -213,7 +212,7 @@ actor {
     threshold : Float,
   ) : async IngredientId {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can add ingredients");
+      Runtime.trap("Unauthorized: Only admins can add ingredients");
     };
 
     let ingredient : Ingredient = {
@@ -243,7 +242,7 @@ actor {
     threshold : Float,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can update ingredients");
+      Runtime.trap("Unauthorized: Only admins can update ingredients");
     };
 
     switch (ingredients.get(id)) {
@@ -266,7 +265,7 @@ actor {
 
   public shared ({ caller }) func deleteIngredient(id : IngredientId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can delete ingredients");
+      Runtime.trap("Unauthorized: Only admins can delete ingredients");
     };
 
     if (not ingredients.containsKey(id)) {
@@ -286,13 +285,14 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view ingredients");
     };
+
     switch (ingredients.get(id)) {
       case (null) { Runtime.trap("Ingredient not found") };
       case (?ingredient) { ingredient };
     };
   };
 
-  // Notification System
+  // Notification System (Users can view, admins can manage)
   public query ({ caller }) func getNotifications() : async [Notification] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view notifications");
@@ -302,8 +302,9 @@ actor {
 
   public shared ({ caller }) func markNotificationRead(id : NotificationId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can mark notifications as read");
+      Runtime.trap("Unauthorized: Only users can mark notifications");
     };
+
     switch (notifications.get(id)) {
       case (null) { Runtime.trap("Notification not found") };
       case (?notification) {
@@ -318,8 +319,9 @@ actor {
 
   public shared ({ caller }) func markAllNotificationsRead() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can mark notifications as read");
+      Runtime.trap("Unauthorized: Only users can mark notifications");
     };
+
     notifications.forEach(
       func(id, notification) {
         let updated : Notification = {
@@ -333,8 +335,9 @@ actor {
 
   public query ({ caller }) func getUnreadCount() : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view notification count");
+      Runtime.trap("Unauthorized: Only users can view notifications");
     };
+
     var count = 0;
     notifications.forEach(
       func(_id, notification) {
@@ -344,11 +347,12 @@ actor {
     count;
   };
 
-  // Inventory Management
+  // Inventory + Reporting (Users can view)
   public query ({ caller }) func getTotalInventoryValue() : async Float {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view inventory value");
     };
+
     var totalValue = 0.0;
     ingredients.forEach(
       func(_id, ingredient) {
@@ -362,6 +366,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view low stock ingredients");
     };
+
     let lowStockList = List.empty<Ingredient>();
     ingredients.forEach(
       func(_id, ingredient) {
@@ -373,7 +378,7 @@ actor {
     lowStockList.toArray();
   };
 
-  // Menu Management
+  // Menu Management (Admin only for modifications, guests can view)
   public shared ({ caller }) func addMenuItem(
     name : Text,
     description : Text,
@@ -382,7 +387,7 @@ actor {
     ingredientUsage : [IngredientUsage],
   ) : async MenuItemId {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can add menu items");
+      Runtime.trap("Unauthorized: Only admins can add menu items");
     };
 
     let menuItem : MenuItem = {
@@ -410,7 +415,7 @@ actor {
     ingredientUsage : [IngredientUsage],
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can update menu items");
+      Runtime.trap("Unauthorized: Only admins can update menu items");
     };
 
     switch (menuItems.get(id)) {
@@ -432,7 +437,7 @@ actor {
 
   public shared ({ caller }) func deleteMenuItem(id : MenuItemId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can delete menu items");
+      Runtime.trap("Unauthorized: Only admins can delete menu items");
     };
 
     if (not menuItems.containsKey(id)) {
@@ -442,37 +447,32 @@ actor {
   };
 
   public query ({ caller }) func getMenuItems() : async [MenuItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view menu items");
-    };
+    // Guests can view menu items (no authorization check needed)
     menuItems.values().toArray();
   };
 
   public query ({ caller }) func getMenuItem(id : MenuItemId) : async MenuItem {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view menu items");
-    };
+    // Guests can view menu items (no authorization check needed)
     switch (menuItems.get(id)) {
       case (null) { Runtime.trap("Menu item not found") };
       case (?menuItem) { menuItem };
     };
   };
 
-  // Seed Menu Items
+  // Seed Menu Items (Admin only)
   public shared ({ caller }) func seedMenuItems() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can seed menu items");
+      Runtime.trap("Unauthorized: Only admins can seed menu items");
     };
 
     let now = Time.now();
 
-    // Ingredient IDs start at 1
     let menuSeedData : [(Text, Text, Float, Float, [IngredientUsage])] = [
       (
         "Greek Salad",
         "Fresh salad with feta, olives, tomatoes, cucumbers",
-        15.0,
-        12.5,
+        129.0,
+        79.5,
         [
           { ingredientName = "Lettuce"; quantity_used = 100.0 }, { ingredientName = "Tomatoes"; quantity_used = 80.0 }, { ingredientName = "Cucumbers"; quantity_used = 60.0 }, { ingredientName = "Cheese"; quantity_used = 40.0 }, { ingredientName = "Olive Oil"; quantity_used = 10.0 },
         ],
@@ -480,8 +480,8 @@ actor {
       (
         "Caesar Bowl",
         "Romaine lettuce, cheese, croutons, caesar dressing",
-        15.0,
-        11.0,
+        139.0,
+        73.0,
         [
           { ingredientName = "Lettuce"; quantity_used = 120.0 }, { ingredientName = "Cheese"; quantity_used = 50.0 }, { ingredientName = "Croutons"; quantity_used = 30.0 }, { ingredientName = "Caesar Dressing"; quantity_used = 20.0 },
         ],
@@ -489,8 +489,8 @@ actor {
       (
         "Quinoa Power",
         "Quinoa, mixed greens, tomatoes, red onion",
-        15.0,
-        10.5,
+        149.0,
+        99.0,
         [
           { ingredientName = "Lettuce"; quantity_used = 80.0 }, { ingredientName = "Tomatoes"; quantity_used = 60.0 }, { ingredientName = "Red Onion"; quantity_used = 40.0 },
         ],
@@ -498,8 +498,8 @@ actor {
       (
         "Super Greens",
         "Lettuce, bell peppers, cucumber, carrots",
-        15.0,
-        9.5,
+        159.0,
+        89.0,
         [
           { ingredientName = "Lettuce"; quantity_used = 110.0 }, { ingredientName = "Bell Peppers"; quantity_used = 70.0 }, { ingredientName = "Cucumbers"; quantity_used = 50.0 }, { ingredientName = "Carrots"; quantity_used = 30.0 },
         ],
@@ -507,8 +507,8 @@ actor {
       (
         "Fruit Mix",
         "Fresh fruits salad with lettuce base",
-        15.0,
-        8.5,
+        169.0,
+        79.0,
         [
           { ingredientName = "Lettuce"; quantity_used = 90.0 },
         ],
@@ -531,7 +531,7 @@ actor {
     };
   };
 
-  // Sales Management
+  // Sales Management (Users can record, admins can delete)
   public shared ({ caller }) func recordSale(menu_item_id : MenuItemId, quantity : Nat) : async SaleId {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can record sales");
@@ -540,6 +540,7 @@ actor {
     if (quantity == 0) {
       Runtime.trap("Quantity must be greater than zero");
     };
+
     let menuItem = switch (menuItems.get(menu_item_id)) {
       case (null) { Runtime.trap("Menu item not found") };
       case (?item) { item };
@@ -570,13 +571,16 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view sales");
     };
-    salesRecords.values().toArray().reverse();
+
+    let salesArray = salesRecords.values().toArray();
+    salesArray.reverse();
   };
 
   public query ({ caller }) func getSaleById(id : SaleId) : async SaleRecord {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view sales");
     };
+
     switch (salesRecords.get(id)) {
       case (null) { Runtime.trap("Sale record not found") };
       case (?record) { record };
@@ -585,22 +589,23 @@ actor {
 
   public shared ({ caller }) func deleteSale(id : SaleId) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admin can delete sales records");
+      Runtime.trap("Unauthorized: Only admins can delete sales");
     };
+
     if (not salesRecords.containsKey(id)) {
       Runtime.trap("Sale record not found");
     };
     salesRecords.remove(id);
   };
 
-  // Updated Dashboard Stats
+  // Dashboard Stats (Users can view)
   public query ({ caller }) func getDashboardStats() : async DashboardStats {
+    // Revert unnecessary admin-check to user permission check
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view dashboard stats");
     };
 
     let now = Time.now();
-
     var daily_sales = 0.0;
     var weekly_sales = 0.0;
     var monthly_sales = 0.0;
@@ -647,20 +652,21 @@ actor {
     );
 
     let sortableItems = List.empty<{ name : Text; units_sold : Nat; revenue : Float }>();
-
     let unitEntries = unit_count.entries();
 
-    for ((name, units_sold) in unitEntries) {
-      let revenue = switch (revenue_map.get(name)) {
-        case (null) { 0.0 };
-        case (?amount) { amount };
-      };
-      sortableItems.add({
-        name;
-        units_sold;
-        revenue;
-      });
-    };
+    unitEntries.forEach(
+      func((name, units_sold)) {
+        let revenue = switch (revenue_map.get(name)) {
+          case (null) { 0.0 };
+          case (?amount) { amount };
+        };
+        sortableItems.add({
+          name;
+          units_sold;
+          revenue;
+        });
+      }
+    );
 
     let sortableArray = sortableItems.toArray();
     let sorted = sortableArray.sort(
@@ -693,8 +699,6 @@ actor {
     };
   };
 
-  // New Phase 5 Reports Functionality
-
   func compareSalesByCreatedAt(a : SaleRecord, b : SaleRecord) : Order.Order {
     Int.compare(b.created_at, a.created_at);
   };
@@ -706,10 +710,12 @@ actor {
     Text.compare(a.date_label, b.date_label);
   };
 
+  // Reports Functionality (Users can view)
   public query ({ caller }) func getSalesByDateRange(from : Int, to : Int) : async [SaleRecord] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view reports");
+      Runtime.trap("Unauthorized: Only users can view sales reports");
     };
+
     let filtered = salesRecords.values().toArray().filter(
       func(sale) {
         sale.created_at >= from and sale.created_at <= to
@@ -722,7 +728,7 @@ actor {
 
   public query ({ caller }) func getReportStats(from : Int, to : Int) : async ReportStats {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view reports");
+      Runtime.trap("Unauthorized: Only users can view report stats");
     };
 
     let seconds_in_day = 86_400_000_000_000;
@@ -743,7 +749,6 @@ actor {
           total_revenue += sale.total_amount;
           total_profit += sale.profit;
 
-          // Day bucketing
           let day_index = Int.abs(sale.created_at) / seconds_in_day;
 
           let current_day_sales = switch (day_buckets.get(day_index)) {
@@ -753,7 +758,6 @@ actor {
           current_day_sales.add(sale);
           day_buckets.add(day_index, current_day_sales);
 
-          // Top sellers
           let current_units = switch (unit_count.get(sale.menu_item_name)) {
             case (null) { 0 };
             case (?units) { units };
@@ -769,7 +773,6 @@ actor {
       }
     );
 
-    // Process daily breakdown
     let daysIter = day_buckets.entries();
     let dailyEntries = List.empty<{ date_label : Text; revenue : Float; profit : Float; orders : Nat }>();
 

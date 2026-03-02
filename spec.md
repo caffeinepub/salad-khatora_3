@@ -1,7 +1,7 @@
 # Salad Khatora
 
 ## Current State
-Phase 6 is complete with Dashboard, Inventory, Menu, Sales, Reports, and Settings pages all wired to a Motoko backend. The backend persists all data (ingredients, menu items, sales, notifications, user profiles). Authentication uses a localStorage-based flow. The logo is referenced from `/assets/uploads/Salad-Khatora-1.jpeg`. Some pages still use `PKR`/`en-PK` locale strings from earlier phases.
+The app has a full-stack backend with Motoko and a React frontend. All backend functions (addIngredient, addMenuItem, recordSale, etc.) are guarded by an ICP-based access control system that requires a registered principal. The frontend uses email/password login (not Internet Identity), so all backend calls come from anonymous or unregistered principals. This causes every write operation to fail with "Unauthorized" or "User is not registered" errors.
 
 ## Requested Changes (Diff)
 
@@ -9,18 +9,12 @@ Phase 6 is complete with Dashboard, Inventory, Menu, Sales, Reports, and Setting
 - Nothing new to add
 
 ### Modify
-1. **Logo fix**: Move logo reference to `/assets/generated/Salad-Khatora-1.jpeg` (copy file there) so it survives the build pipeline and is properly served. Update Sidebar and LoginPage to reference the new path.
-2. **Currency - INR everywhere**: 
-   - `SettingsPage.tsx`: Change `DEFAULT_PREFS.currency` from `"PKR"` to `"INR"`, add INR as first option in currency select, remove or reprioritize PKR
-   - `ReportsPage.tsx`: Replace all `en-PK` locale with `en-IN`, replace `PKR` label strings in CSV headers and tooltip formatter with `₹` / `INR`
-3. **Database connectivity**: Ensure actor initialization reliably connects frontend to backend. Add a seed button on Dashboard for first-time setup. Make sure the actor's admin token initialization happens before data fetches.
+- Backend: Remove all access control checks from every function. All operations (CRUD for ingredients, menu items, sales, notifications, dashboard, reports, profile) should be open/unrestricted since the app uses frontend-only email/password authentication.
 
 ### Remove
-- Nothing to remove
+- Backend: Remove the `MixinAuthorization` include and `AccessControl` permission checks from all functions
+- Backend: Remove the authorization component dependency
 
 ## Implementation Plan
-1. Copy `Salad-Khatora-1.jpeg` from `uploads/` to `generated/` folder with a clean filename
-2. Update `Sidebar.tsx` and `LoginPage.tsx` image src paths
-3. Fix `SettingsPage.tsx` default currency and options (PKR → INR)
-4. Fix `ReportsPage.tsx` all `en-PK` → `en-IN`, `PKR` label text → `₹`/`INR`
-5. Verify `useActor.ts` properly awaits admin initialization before queries run
+1. Regenerate the Motoko backend without the authorization component — all functions should work without any caller-based permission checks
+2. The frontend does not need changes since the backend.d.ts interface remains the same (same function signatures, just no auth enforcement)
